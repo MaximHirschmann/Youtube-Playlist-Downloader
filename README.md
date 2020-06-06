@@ -16,7 +16,8 @@ Start!
 
 # How to run
 ## Requirements:
-* [ffmpeg](https://ffmpeg.org/)
+* [ffmpeg](https://ffmpeg.org/)  
+### Additionally for the python file:  
 * youtube_dl
 * pyqt5
 ## Run
