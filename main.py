@@ -190,6 +190,8 @@ class App(QWidget):
     def finished(self):
         if self.threadpool.activeThreadCount() == 0:
             data = [[pl, self.dataSave[pl]] for pl in self.playlists]
+            with open("save.txt", "w+") as f:
+                f.write(dumps(data))
             self.startDialog(data)
 
     """given an url returns the data in the required format for downloadMultiplePlaylists(self, data, path)"""
@@ -263,56 +265,43 @@ class App(QWidget):
 
     """returns a list of the data in a playlist in the form [(videoTitle, videoId),...]"""
     def titleIds(self, url):
-        # youtube saves the playlist information of the first 100 videos in a json object named "ytInitialData"
-        searched = get(url,headers=self.headers).text
-        ytInitialData = loads(re.compile(r"window\[\"ytInitialData\"\] = ([^;]*)").findall(searched)[0])
-        items = ytInitialData["contents"]["twoColumnBrowseResultsRenderer"]["tabs"][0]["tabRenderer"]["content"]["sectionListRenderer"]["contents"][0]["itemSectionRenderer"]["contents"][0]["playlistVideoListRenderer"]
+        # required to receive proper responses from ajax calls
+        headers = {
+            "x-youtube-client-name": "1",
+            "x-youtube-client-version": "2.20200926.03.00",
+        }
         titles = []
         ids = []
-        for i in range(100):
-            try:
-                item = items["contents"][i]["playlistVideoRenderer"]
-                titles.append(item["title"]["simpleText"])
-                ids.append(item["videoId"])
-            except:
-                # video not available, deleted ...
-                pass
-        # if there are more than 100 songs ajax calls are made
-        try:
-            # save continuation
-            cont = items["continuations"][0]["nextContinuationData"]["continuation"]
-        except:
-            # not more than 100 videos in playlist
-            return list(zip(titles, ids))
-        # ajax call
-        url = "https://www.youtube.com/browse_ajax?action_continuation=1&amp;continuation=" + cont
-        # as long as continuations exist
+        ajax = False
+        template = "https://www.youtube.com/browse_ajax?action_continuation=1&amp;continuation="
         while url:
-            # try opening the url multiple times to make sure it was not a periodic error
-            count = 0
-            while count < 3:
-                html = get(url).text
-                # response is an json object with a load_more_widget_html parameter where the continuation of the ajax call is and content_html with the html of the newly loaded content
-                j = loads(html)
+            # first 100 of a playlist
+            if not ajax:
+                # youtube saves the playlist information of the first 100 videos in a json object named "ytInitialData"
+                searched = get(url,headers=headers).text
+                ytInitialData = loads(re.compile(r"window\[\"ytInitialData\"\] = ([^;]*)").findall(searched)[0])
+                items = ytInitialData["contents"]["twoColumnBrowseResultsRenderer"]["tabs"][0]["tabRenderer"]["content"]["sectionListRenderer"]["contents"][0]["itemSectionRenderer"]["contents"][0]["playlistVideoListRenderer"]
+            # rest of playlist
+            else:
+                html = get(url, headers = headers).text.replace("\r","").replace("\n", "")
+                j = loads(html)[1]
+                items = j["response"]["continuationContents"]["playlistVideoListContinuation"]
+
+            for i in range(100):
                 try:
-                    load_more = dumps(j["load_more_widget_html"], ensure_ascii=False)
-                    content = dumps(j["content_html"], ensure_ascii=False)
+                    item = items["contents"][i]["playlistVideoRenderer"]
+                    titles.append(item["title"]["runs"][0]["text"])
+                    ids.append(item["videoId"])
                 except:
-                    count += 1
-                    continue
-                # exctract titles and ids from new content, titles are with html entities so we have to escape that
-                titles += [unescape(i) for i in re.compile(r"data-title=\\\"(.*?)\\\"").findall(content)]
-                ids += re.compile(r"data-video-id=\\\"(.*?)\\\"").findall(content)
-                # load next ajax call
-                match = re.search(
-                    r"data-uix-load-more-href=\\\"(.*?)\\\"",
-                    load_more,
-                )
-                if match:
-                    url = f"https://www.youtube.com{match.group(1)}"
-                else:
-                    url = None
-                break
+                    pass
+            try:
+                # ajax call
+                cont = items["continuations"][0]["nextContinuationData"]["continuation"]
+                url = template + cont
+                ajax = True
+            except:
+                url = None
+                
         # combine the titles and ids
         return list(zip(titles, ids))
 
@@ -379,6 +368,7 @@ class App(QWidget):
             ],
         }
         try:
+
             info = youtube_dl.YoutubeDL(params).extract_info(Id, download = True)
             if info["alt_title"] != None:
                 title = info["alt_title"]
@@ -424,10 +414,11 @@ def newName(s):
 
 """returns title of a youtube video or playlist given an url"""
 def get_title(url):
+    header = {'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36'}
     count = 0
     while count < 3:
         # get htlm of url
-        youtube = get(url).text
+        youtube = get(url, headers=header).text
         # regex does not support " in name
         #res = re.compile(r"<meta name=\"title\" content=\"([^\"]*)").findall(youtube)
         for s in youtube.split("\n"):
@@ -468,6 +459,7 @@ class MyLogger():
         self.infoCallback.emit(msg)
 
 if __name__ == '__main__':
+    #pyinstaller -y -F -w -i "C:/Users/Maxim/Desktop/Python/Download Playlist 4/download Icon.ico" --hidden-import PyQt.sip  "C:/Users/Maxim/Desktop/Python/Download Playlist 4/main.py"
     app = QApplication(sys.argv)
     app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
     ex = App()
