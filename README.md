@@ -1,9 +1,7 @@
 # Youtube-Playlist-Downloader
  Provides an interface to select and download mp3 Audio from Youtube Playlists
  
-![Enter URL](https://imagehost.imageupload.net/2020/06/06/Screenshot-32.png)
-![sdf](https://imagehost.imageupload.net/2020/06/06/Screenshot-33.png)
-![sdj](https://imagehost.imageupload.net/2020/06/06/Screenshot-34.png)
+![Preview](https://imgur.com/5HrRwhg.jpg)
 
 # How it works
 Enter a youtube Url of a channel, playlist or video. For example those would be valid:  
