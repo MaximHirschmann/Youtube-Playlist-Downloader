@@ -19,4 +19,4 @@ Start!
 * youtube_dl
 * pyqt5
 ## Run
-Run either the exe or the python file.
+Run the main.py file
